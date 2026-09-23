@@ -5,10 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"html"
 	"time"
 
 	"github.com/mark-c-hall/gator/internal/config"
 	"github.com/mark-c-hall/gator/internal/database"
+	"github.com/mark-c-hall/gator/internal/feed"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
@@ -124,5 +126,18 @@ func HandlerGetUsers(s *State, cmd Command) error {
 			fmt.Printf("* %s\n", user.Name)
 		}
 	}
+	return nil
+}
+
+func HandlerAgg(s *State, cmd Command) error {
+	const feedURL = "https://www.wagslane.dev/index.xml"
+	feed, err := feed.FetchFeed(context.Background(), feedURL)
+	if err != nil {
+		return fmt.Errorf("error fetching feed: %w", err)
+	}
+	feed.Channel.Title = html.UnescapeString(feed.Channel.Title)
+	feed.Channel.Description = html.UnescapeString(feed.Channel.Description)
+
+	fmt.Println(feed)
 	return nil
 }
