@@ -1,18 +1,27 @@
 package command
 
 import (
+	"context"
+	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/mark-c-hall/gator/internal/config"
+	"github.com/mark-c-hall/gator/internal/database"
+
+	"github.com/google/uuid"
+	"github.com/lib/pq"
+	"github.com/lib/pq/pqerror"
 )
 
 type State struct {
 	Config *config.Config
+	DB     *database.Queries
 }
 
-func NewState(cfg *config.Config) *State {
-	return &State{Config: cfg}
+func NewState(cfg *config.Config, db *database.Queries) *State {
+	return &State{Config: cfg, DB: db}
 }
 
 type Command struct {
@@ -52,10 +61,44 @@ func HandlerLogin(s *State, cmd Command) error {
 		return errors.New("login handler expects a single argument: username")
 	}
 	username := cmd.Args[0]
-	err := s.Config.SetUser(username)
+
+	_, err := s.DB.GetUser(context.Background(), username)
+	if errors.Is(err, sql.ErrNoRows) {
+		return errors.New("user is not registered in database")
+	}
+
+	err = s.Config.SetUser(username)
 	if err != nil {
 		return fmt.Errorf("login handler: error setting username: %w", err)
 	}
 	fmt.Printf("User '%s' has been set\n", username)
+	return nil
+}
+
+func HandlderRegister(s *State, cmd Command) error {
+	if len(cmd.Args) == 0 {
+		return errors.New("register handler expects a signel argument: username")
+	}
+	username := cmd.Args[0]
+
+	_, err := s.DB.CreateUser(context.Background(), database.CreateUserParams{
+		UserID:    uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		Name:      username,
+	})
+	if pqErr, ok := errors.AsType[*pq.Error](err); ok && pqErr.Code == pqerror.UniqueViolation {
+		return errors.New("username already exists")
+	}
+	if err != nil {
+		return fmt.Errorf("error creating user: %w", err)
+	}
+
+	err = s.Config.SetUser(username)
+	if err != nil {
+		return fmt.Errorf("error setting username: %w", err)
+	}
+
+	fmt.Printf("User '%s' was created\n", username)
 	return nil
 }

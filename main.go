@@ -1,11 +1,15 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 
 	"github.com/mark-c-hall/gator/internal/command"
 	"github.com/mark-c-hall/gator/internal/config"
+	"github.com/mark-c-hall/gator/internal/database"
+
+	_ "github.com/lib/pq"
 )
 
 func main() {
@@ -15,9 +19,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	state := command.NewState(cfg)
+	db, err := sql.Open("postgres", cfg.DB_URL)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error opening database: %v", err)
+	}
+	dbQueries := database.New(db)
+
+	state := command.NewState(cfg, dbQueries)
 	commands := command.NewCommands()
 	commands.Register("login", command.HandlerLogin)
+	commands.Register("register", command.HandlderRegister)
 
 	if len(os.Args) < 2 {
 		fmt.Fprintf(os.Stderr, "Not enough arguments given\n")
@@ -26,7 +37,7 @@ func main() {
 	cmd := command.NewCommand(os.Args[1:])
 	err = commands.Run(state, cmd)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error running command '%s': %v\n", cmd.Name, err)
+		fmt.Fprintf(os.Stderr, "Error running %s command: %v\n", cmd.Name, err)
 		os.Exit(1)
 	}
 }
