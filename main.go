@@ -30,6 +30,7 @@ func main() {
 	commands.Register("login", command.HandlerLogin)
 	commands.Register("register", command.HandlderRegister)
 	commands.Register("reset", command.HandlerReset)
+	commands.Register("users", command.HandlerGetUsers)
 
 	if len(os.Args) < 2 {
 		fmt.Fprintf(os.Stderr, "Not enough arguments given\n")
