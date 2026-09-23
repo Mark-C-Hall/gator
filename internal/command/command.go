@@ -102,3 +102,12 @@ func HandlderRegister(s *State, cmd Command) error {
 	fmt.Printf("User '%s' was created\n", username)
 	return nil
 }
+
+func HandlerReset(s *State, cmd Command) error {
+	err := s.DB.DeleteAllUsers(context.Background())
+	if err != nil {
+		return fmt.Errorf("error deleting users: %w", err)
+	}
+	fmt.Println("All users deleted")
+	return nil
+}
