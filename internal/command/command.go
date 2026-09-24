@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"html"
+	"os"
 	"time"
 
 	"github.com/mark-c-hall/gator/internal/config"
@@ -163,5 +164,21 @@ func HandlerAddFeed(s *State, cmd Command) error {
 		return fmt.Errorf("error creating feed: %w", err)
 	}
 	fmt.Println(newFeed)
+	return nil
+}
+
+func HandlerFeeds(s *State, cmd Command) error {
+	feeds, err := s.DB.GetAllFeeds(context.Background())
+	if err != nil {
+		return fmt.Errorf("error getting all feeds from db: %w", err)
+	}
+	for _, feed := range feeds {
+		user, err := s.DB.GetUserByID(context.Background(), feed.UserID)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error getting user ID, continuing\n")
+			continue
+		}
+		fmt.Printf("Feed name: %s, Feed URL: %s, Username: %s\n", feed.Name, feed.Url, user.Name)
+	}
 	return nil
 }

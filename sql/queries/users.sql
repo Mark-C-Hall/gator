@@ -15,5 +15,9 @@ SELECT * FROM users;
 SELECT * FROM users
 WHERE name = $1 LIMIT 1;
 
+-- name: GetUserByID :one
+SELECT * FROM users
+WHERE user_id = $1 LIMIT 1;
+
 -- name: DeleteAllUsers :exec
 DELETE FROM users;
