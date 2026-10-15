@@ -80,7 +80,7 @@ func HandlerLogin(s *State, cmd Command) error {
 
 func HandlderRegister(s *State, cmd Command) error {
 	if len(cmd.Args) == 0 {
-		return errors.New("register handler expects a signel argument: username")
+		return errors.New("register handler expects a single argument: username")
 	}
 	username := cmd.Args[0]
 
@@ -163,6 +163,16 @@ func HandlerAddFeed(s *State, cmd Command) error {
 	if err != nil {
 		return fmt.Errorf("error creating feed: %w", err)
 	}
+	_, err = s.DB.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{
+		FeedFollowID: uuid.New(),
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+		UserID:       user.UserID,
+		FeedID:       newFeed.FeedID,
+	})
+	if err != nil {
+		return fmt.Errorf("error creating feed follow: %w", err)
+	}
 	fmt.Println(newFeed)
 	return nil
 }
@@ -179,6 +189,51 @@ func HandlerFeeds(s *State, cmd Command) error {
 			continue
 		}
 		fmt.Printf("Feed name: %s, Feed URL: %s, Username: %s\n", feed.Name, feed.Url, user.Name)
+	}
+	return nil
+}
+
+func HandlerFollow(s *State, cmd Command) error {
+	if len(cmd.Args) < 1 {
+		return errors.New("follow expects one argument: url")
+	}
+	url := cmd.Args[0]
+	feed, err := s.DB.GetFeedByURL(context.Background(), url)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("error checking if feed exists: %w", err)
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		return errors.New("feed does exist with the given url")
+	}
+	user, err := s.DB.GetUser(context.Background(), s.Config.CurrentUserName)
+	if err != nil {
+		return fmt.Errorf("error getting username: %w", err)
+	}
+	_, err = s.DB.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{
+		FeedFollowID: uuid.New(),
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+		UserID:       user.UserID,
+		FeedID:       feed.FeedID,
+	})
+	if err != nil {
+		return fmt.Errorf("error creating feed follow: %w", err)
+	}
+	fmt.Printf("feed: %s, name: %s\n", feed.Name, user.Name)
+	return nil
+}
+
+func HandlerFollowing(s *State, cmd Command) error {
+	user, err := s.DB.GetUser(context.Background(), s.Config.CurrentUserName)
+	if err != nil {
+		return fmt.Errorf("error getting username: %w", err)
+	}
+	feed_follows, err := s.DB.GetFeedFollowsForUser(context.Background(), user.UserID)
+	if err != nil {
+		return fmt.Errorf("error getting feed follows: %w", err)
+	}
+	for _, ff := range feed_follows {
+		fmt.Printf("Feed name: %s\n", ff.FeedName)
 	}
 	return nil
 }
