@@ -144,7 +144,7 @@ func scrapeFeeds(s *State) error {
 		LastFetchedAt: time.Now(),
 	})
 	if err != nil {
-		return fmt.Errorf("error marking feed fetched: %w")
+		return fmt.Errorf("error marking feed fetched: %w", err)
 	}
 	feed.Channel.Title = html.UnescapeString(feed.Channel.Title)
 	feed.Channel.Description = html.UnescapeString(feed.Channel.Description)
@@ -161,7 +161,7 @@ func HandlerAgg(s *State, cmd Command) error {
 	time_between_reqs := cmd.Args[0]
 	duration, err := time.ParseDuration(time_between_reqs)
 	if err != nil {
-		return fmt.Errorf("error parsing time between requests string: %w")
+		return fmt.Errorf("error parsing time between requests string: %w", err)
 	}
 	ticker := time.NewTicker(duration)
 	for ; ; <-ticker.C {
