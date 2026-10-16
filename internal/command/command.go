@@ -225,3 +225,22 @@ func HandlerFollowing(s *State, cmd Command, user database.User) error {
 	}
 	return nil
 }
+
+func HandlerUnfollow(s *State, cmd Command, user database.User) error {
+	if len(cmd.Args) < 1 {
+		return errors.New("follow expects one argument: url")
+	}
+	url := cmd.Args[0]
+	feed, err := s.DB.GetFeedByURL(context.Background(), url)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("error checking if feed exists: %w", err)
+	}
+	err = s.DB.DeleteFeedFollow(context.Background(), database.DeleteFeedFollowParams{
+		UserID: user.UserID,
+		FeedID: feed.FeedID,
+	})
+	if err != nil {
+		return fmt.Errorf("error deleting feed follow: %w", err)
+	}
+	return nil
+}
