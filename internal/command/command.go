@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/mark-c-hall/gator/internal/config"
@@ -149,7 +150,47 @@ func scrapeFeeds(s *State) error {
 	feed.Channel.Title = html.UnescapeString(feed.Channel.Title)
 	feed.Channel.Description = html.UnescapeString(feed.Channel.Description)
 	for _, item := range feed.Channel.Item {
-		fmt.Printf("Title: %s\n", item.Title)
+		err = addPost(s, item, nextFeed.FeedID)
+		if pqErr, ok := errors.AsType[*pq.Error](err); ok && pqErr.Code == pqerror.UniqueViolation {
+			continue
+		} else {
+			return fmt.Errorf("error adding post: %w", err)
+		}
+	}
+	return nil
+}
+
+func parsePubDate(pubDate string) (time.Time, error) {
+	layouts := []string{time.RFC1123Z, time.RFC1123, time.RFC822Z, time.RFC822}
+	for _, layout := range layouts {
+		if t, err := time.Parse(layout, pubDate); err == nil {
+			return t, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("unrecognized pubDate format: %q", pubDate)
+}
+
+func addPost(s *State, post feed.RSSItem, feedID uuid.UUID) error {
+	pubDate, err := parsePubDate(post.PubDate)
+	if err != nil {
+		return fmt.Errorf("error parsing post pubDate: %w", err)
+	}
+	_, err = s.DB.CreatePost(context.Background(), database.CreatePostParams{
+		PostID:      uuid.New(),
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+		Title:       post.Title,
+		Url:         post.Link,
+		Description: post.Description,
+		PublishedAt: pubDate,
+		FeedID:      feedID,
+	})
+	if pqErr, ok := errors.AsType[*pq.Error](err); ok && pqErr.Code == pqerror.UniqueViolation {
+		fmt.Printf("URL %s already exists, skipping...\n", post.Link)
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("error creating post: %w", err)
 	}
 	return nil
 }
@@ -267,6 +308,30 @@ func HandlerUnfollow(s *State, cmd Command, user database.User) error {
 	})
 	if err != nil {
 		return fmt.Errorf("error deleting feed follow: %w", err)
+	}
+	return nil
+}
+
+func HandlerBrowse(s *State, cmd Command, user database.User) error {
+	limit := 2
+	if len(cmd.Args) > 0 {
+		n, err := strconv.Atoi(cmd.Args[0])
+		if err != nil {
+			return fmt.Errorf("error parsing limit argument: %w", err)
+		}
+		limit = n
+	}
+
+	posts, err := s.DB.GetPostsForUser(context.Background(), database.GetPostsForUserParams{
+		UserID: user.UserID,
+		Limit:  int32(limit),
+	})
+	if err != nil {
+		return fmt.Errorf("error getting user's posts: %w", err)
+	}
+	for _, content := range posts {
+		fmt.Printf("Title: %s\n", content.Title)
+		fmt.Printf("Content: %s\n", content.Description)
 	}
 	return nil
 }
