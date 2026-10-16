@@ -130,17 +130,43 @@ func HandlerGetUsers(s *State, cmd Command) error {
 	return nil
 }
 
-func HandlerAgg(s *State, cmd Command) error {
-	const feedURL = "https://www.wagslane.dev/index.xml"
-	feed, err := feed.FetchFeed(context.Background(), feedURL)
+func scrapeFeeds(s *State) error {
+	nextFeed, err := s.DB.GetNextFeedToFetch(context.Background())
+	if err != nil {
+		return fmt.Errorf("error getting next feed to fetch: %w", err)
+	}
+	feed, err := feed.FetchFeed(context.Background(), nextFeed.Url)
 	if err != nil {
 		return fmt.Errorf("error fetching feed: %w", err)
 	}
+	err = s.DB.MarkFeedFetched(context.Background(), database.MarkFeedFetchedParams{
+		FeedID:        nextFeed.FeedID,
+		LastFetchedAt: time.Now(),
+	})
+	if err != nil {
+		return fmt.Errorf("error marking feed fetched: %w")
+	}
 	feed.Channel.Title = html.UnescapeString(feed.Channel.Title)
 	feed.Channel.Description = html.UnescapeString(feed.Channel.Description)
-
-	fmt.Println(feed)
+	for _, item := range feed.Channel.Item {
+		fmt.Printf("Title: %s\n", item.Title)
+	}
 	return nil
+}
+
+func HandlerAgg(s *State, cmd Command) error {
+	if len(cmd.Args) < 1 {
+		return errors.New("agg expects one argument: timeBetweenRequests")
+	}
+	time_between_reqs := cmd.Args[0]
+	duration, err := time.ParseDuration(time_between_reqs)
+	if err != nil {
+		return fmt.Errorf("error parsing time between requests string: %w")
+	}
+	ticker := time.NewTicker(duration)
+	for ; ; <-ticker.C {
+		scrapeFeeds(s)
+	}
 }
 
 func HandlerAddFeed(s *State, cmd Command, user database.User) error {
