@@ -32,10 +32,10 @@ func main() {
 	commands.Register("reset", command.HandlerReset)
 	commands.Register("users", command.HandlerGetUsers)
 	commands.Register("agg", command.HandlerAgg)
-	commands.Register("addfeed", command.HandlerAddFeed)
+	commands.Register("addfeed", command.MiddlewareLoggedIn(command.HandlerAddFeed))
 	commands.Register("feeds", command.HandlerFeeds)
-	commands.Register("follow", command.HandlerFollow)
-	commands.Register("following", command.HandlerFollowing)
+	commands.Register("follow", command.MiddlewareLoggedIn(command.HandlerFollow))
+	commands.Register("following", command.MiddlewareLoggedIn(command.HandlerFollowing))
 
 	if len(os.Args) < 2 {
 		fmt.Fprintf(os.Stderr, "Not enough arguments given\n")

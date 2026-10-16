@@ -143,15 +143,11 @@ func HandlerAgg(s *State, cmd Command) error {
 	return nil
 }
 
-func HandlerAddFeed(s *State, cmd Command) error {
+func HandlerAddFeed(s *State, cmd Command, user database.User) error {
 	if len(cmd.Args) < 2 {
 		return errors.New("addfeed expects two arguments: name and url")
 	}
 	name, url := cmd.Args[0], cmd.Args[1]
-	user, err := s.DB.GetUser(context.Background(), s.Config.CurrentUserName)
-	if err != nil {
-		return fmt.Errorf("error getting username: %w", err)
-	}
 	newFeed, err := s.DB.CreateFeed(context.Background(), database.CreateFeedParams{
 		FeedID:    uuid.New(),
 		CreatedAt: time.Now(),
@@ -193,7 +189,7 @@ func HandlerFeeds(s *State, cmd Command) error {
 	return nil
 }
 
-func HandlerFollow(s *State, cmd Command) error {
+func HandlerFollow(s *State, cmd Command, user database.User) error {
 	if len(cmd.Args) < 1 {
 		return errors.New("follow expects one argument: url")
 	}
@@ -204,10 +200,6 @@ func HandlerFollow(s *State, cmd Command) error {
 	}
 	if errors.Is(err, sql.ErrNoRows) {
 		return errors.New("feed does exist with the given url")
-	}
-	user, err := s.DB.GetUser(context.Background(), s.Config.CurrentUserName)
-	if err != nil {
-		return fmt.Errorf("error getting username: %w", err)
 	}
 	_, err = s.DB.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{
 		FeedFollowID: uuid.New(),
@@ -223,11 +215,7 @@ func HandlerFollow(s *State, cmd Command) error {
 	return nil
 }
 
-func HandlerFollowing(s *State, cmd Command) error {
-	user, err := s.DB.GetUser(context.Background(), s.Config.CurrentUserName)
-	if err != nil {
-		return fmt.Errorf("error getting username: %w", err)
-	}
+func HandlerFollowing(s *State, cmd Command, user database.User) error {
 	feed_follows, err := s.DB.GetFeedFollowsForUser(context.Background(), user.UserID)
 	if err != nil {
 		return fmt.Errorf("error getting feed follows: %w", err)
